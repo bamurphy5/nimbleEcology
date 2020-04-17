@@ -18,6 +18,7 @@
 #' @param n number of random draws, each returning a vector of length
 #'        \code{len}. Currently only \code{n = 1} is supported, but the
 #'        argument exists for standardization of "\code{r}" functions.
+#' @param fast TRUE or 1 for fast algorithm (default). Only set to FALSE or 0 if boundary limit is reached.
 #'
 #' @details These nimbleFunctions provide distributions that can be
 #'     used directly in R or in \code{nimble} hierarchical models (via
@@ -161,6 +162,7 @@ dNmixture_v <- nimbleFunction(
                    Nmin = double(0, default = -1),
                    Nmax = double(0, default = -1),
                    len = double(),
+                   fast = integer(0, default = 1),
                    log = integer(0, default = 0)) {
     if (length(x) != len) stop("in dNmixture_v, len must equal length(x).")
     if (length(prob) != len) stop("in dNmixture_v, len must equal length(prob).")
@@ -181,17 +183,27 @@ dNmixture_v <- nimbleFunction(
     }
     Nmin <- max( max(x), Nmin ) ## set Nmin to at least the largest x
 
-    logProb <- -Inf
     if (Nmax > Nmin) {
-      fac <- 1
-      ## ff = lambda prod((1-p_i)) N^(numReps - 1)
-      ff <- lambda * prod( (1-prob) )
-      numN <- Nmax - Nmin + 1 - 1 ## remember: +1 for the count, but -1 because the summation should run from N = maxN to N = minN + 1
-      for (i in 1:numN) {
-        N <- Nmax - i + 1
-        fac <- 1 + fac * ff * prod(N/(N - x)) / N
+      if (fast) {
+        logProb <- -Inf
+        fac <- 1
+        ## ff = lambda prod((1-p_i)) N^(numReps - 1)
+        ff <- lambda * prod( (1-prob) )
+        numN <- Nmax - Nmin + 1 - 1 ## remember: +1 for the count, but -1 because the summation should run from N = maxN to N = minN + 1
+        for (i in 1:numN) {
+          N <- Nmax - i + 1
+          fac <- 1 + fac * ff * prod(N/(N - x)) / N
+        }
+        logProb <- dpois(Nmin, lambda, log = TRUE) +
+                   sum(dbinom(x, size = Nmin, prob = prob, log = TRUE)) + log(fac)
+      } else {
+        obsProb <- 0
+        for (N in Nmin:Nmax) {
+          thisObsProb <- dpois(N, lambda) * prod(dbinom(x, size = N, prob = prob))
+          obsProb <- obsProb + thisObsProb
+        }
+        logProb <- log(obsProb)
       }
-      logProb <- dpois(Nmin, lambda, log = TRUE) + sum(dbinom(x, size = Nmin, prob = prob, log = TRUE)) + log(fac)
     }
     if (log) return(logProb)
     else return(exp(logProb))
@@ -208,6 +220,7 @@ dNmixture_s <- nimbleFunction(
                    Nmin = double(0, default = -1),
                    Nmax = double(0, default = -1),
                    len = double(),
+                   fast = integer(0, default = 1),
                    log = integer(0, default = 0)) {
     if (length(x) != len) stop("in dNmixture_v, len must equal length(x).")
 
@@ -227,17 +240,27 @@ dNmixture_s <- nimbleFunction(
     }
     Nmin <- max( max(x), Nmin ) ## set Nmin to at least the largest x
 
-    logProb <- -Inf
     if (Nmax > Nmin) {
-      fac <- 1
-      ## ff = lambda prod((1-p_i)) N^(numReps - 1)
-      ff <- lambda * ((1-prob)^len)
-      numN <- Nmax - Nmin + 1 - 1 ## remember: +1 for the count, but -1 because the summation should run from N = maxN to N = minN + 1
-      for (i in 1:numN) {
-        N <- Nmax - i + 1
-        fac <- 1 + fac * ff * prod(N/(N - x)) / N
+      if (fast) {
+        logProb <- -Inf
+        fac <- 1
+        ## ff = lambda prod((1-p_i)) N^(numReps - 1)
+        ff <- lambda * ((1-prob)^len)
+        numN <- Nmax - Nmin + 1 - 1 ## remember: +1 for the count, but -1 because the summation should run from N = maxN to N = minN + 1
+        for (i in 1:numN) {
+          N <- Nmax - i + 1
+          fac <- 1 + fac * ff * prod(N/(N - x)) / N
+        }
+        logProb <- dpois(Nmin, lambda, log = TRUE) +
+                   sum(dbinom(x, size = Nmin, prob = prob, log = TRUE)) + log(fac)
+      } else {
+        obsProb <- 0
+        for (N in Nmin:Nmax) {
+          thisObsProb <- dpois(N, lambda) * prod(dbinom(x, size = N, prob = prob))
+          obsProb <- obsProb + thisObsProb
+        }
+        logProb <- log(obsProb)
       }
-      logProb <- dpois(Nmin, lambda, log = TRUE) + sum(dbinom(x, size = Nmin, prob = prob, log = TRUE)) + log(fac)
     }
     if (log) return(logProb)
     else return(exp(logProb))
@@ -253,7 +276,8 @@ rNmixture_v <- nimbleFunction(
                  prob = double(1),
                  Nmin = double(0, default = -1),
                  Nmax = double(0, default = -1),
-                 len = double()) {
+                 len = double(),
+                 fast = double(0, default = 1)) {
     if (n != 1) stop("rNmixture_v only works for n = 1")
     if (length(prob) != len) stop("In rNmixture_v, len must equal length(prob).")
     trueN <- rpois(1, lambda)
@@ -275,7 +299,8 @@ rNmixture_s <- nimbleFunction(
                  prob = double(),
                  Nmin = double(0, default = -1),
                  Nmax = double(0, default = -1),
-                 len = double()) {
+                 len = double(),
+                 fast = double(0, default = 1)) {
     if (n != 1) stop("rNmixture_v only works for n = 1")
     trueN <- rpois(1, lambda)
     ans <- numeric(len)

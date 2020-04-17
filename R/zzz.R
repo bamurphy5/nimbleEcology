@@ -286,15 +286,17 @@
 
   registerDistributions(list(
     dNmixture_v = list(
-      BUGSdist = "dNmixture_v(lambda, prob, Nmin, Nmax, len)",
-      Rdist = "dNmixture_v(lambda, prob, Nmin, Nmax, len)",
+      BUGSdist = "dNmixture_v(lambda, prob, Nmin, Nmax, len, fast)",
+      Rdist = c("dNmixture_v(lambda, prob, Nmin, Nmax, len, fast = 1)",
+                "dNmixture_v(lambda, prob, Nmin, Nmax, len, fast)"),
       discrete = TRUE,
       types = c('value = double(1)',
                 'lambda = double()',
                 'prob = double(1)',
                 'Nmin = double(0, default = -1)',
                 'Nmax = double(0, default = -1)',
-                'len = double()'
+                'len = double()',
+                'fast = integer(0, default = 1)'
                 ),
       mixedSizes = FALSE,
       pqAvail = FALSE
@@ -303,15 +305,17 @@
 
   registerDistributions(list(
     dNmixture_s = list(
-      BUGSdist = "dNmixture_s(lambda, prob, Nmin, Nmax, len)",
-      Rdist = "dNmixture_s(lambda, prob, Nmin, Nmax, len)",
+      BUGSdist = "dNmixture_s(lambda, prob, Nmin, Nmax, len, fast)",
+      Rdist = c("dNmixture_s(lambda, prob, Nmin, Nmax, len, fast = 1)",
+                "dNmixture_s(lambda, prob, Nmin, Nmax, len, fast)"),
       discrete = TRUE,
       types = c('value = double(1)',
                 'lambda = double()',
                 'prob = double()',
                 'Nmin = double(0, default = -1)',
                 'Nmax = double(0, default = -1)',
-                'len = double()'
+                'len = double()',
+                'fast = integer(0, default = 1)'
                 ),
       mixedSizes = FALSE,
       pqAvail = FALSE

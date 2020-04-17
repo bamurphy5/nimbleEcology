@@ -18,6 +18,7 @@ test_that("dNmixture_v works",
           len <- 5
 
           probX <- dNmixture_v(x, lambda, prob, Nmin, Nmax, len)
+          probX_slow <- dNmixture_v(x, lambda, prob, Nmin, Nmax, len, fast = FALSE)
       # Manually calculate the correct answer
           correctProbX <- 0
           for (N in Nmin:Nmax) {
@@ -25,19 +26,26 @@ test_that("dNmixture_v works",
           }
 
           expect_equal(probX, correctProbX)
+          expect_equal(probX_slow, correctProbX)
 
       # Uncompiled log probability
           lProbX <- dNmixture_v(x, lambda, prob, Nmin, Nmax, len, log = TRUE)
+          lProbX_slow <- dNmixture_v(x, lambda, prob, Nmin, Nmax, len, fast = FALSE, log = TRUE)
           lCorrectProbX <- log(correctProbX)
           expect_equal(lProbX, lCorrectProbX)
+          expect_equal(lProbX_slow, lCorrectProbX)
 
       # Compilation and compiled calculations
           CdNmixture_v <- compileNimble(dNmixture_v)
           CprobX <- CdNmixture_v(x, lambda, prob, Nmin, Nmax, len)
+          CprobX_slow <- CdNmixture_v(x, lambda, prob, Nmin, Nmax, len, fast = FALSE)
           expect_equal(CprobX, probX)
+          expect_equal(CprobX_slow, probX)
 
           ClProbX <- CdNmixture_v(x, lambda, prob, Nmin, Nmax, len, log = TRUE)
+          ClProbX_slow <- CdNmixture_v(x, lambda, prob, Nmin, Nmax, len, fast = F, log = TRUE)
           expect_equal(ClProbX, lProbX)
+          expect_equal(ClProbX_slow, lProbX)
 
       # Use in Nimble model
           nc <- nimbleCode({
@@ -82,6 +90,50 @@ test_that("dNmixture_v works",
 
       # Did the imputed values come back?
           expect_true(all(!is.na(as.matrix(cmNA$mNA_MCMC$mvSamples)[,"x[2]"])))
+
+      # Use slow version in Nimble model
+          nc_slow <- nimbleCode({
+            x[1:5] ~ dNmixture_v(lambda = lambda, prob = prob[1:5],
+                                 Nmin = Nmin, Nmax = Nmax,
+                                 len = len, fast = 0)
+
+          })
+
+          m_slow <- nimbleModel(code = nc_slow,
+                           data = list(x = x),
+                           inits = list(lambda = lambda,
+                                        prob = prob),
+                           constants = list(Nmin = Nmin, Nmax = Nmax,
+                                            len = len))
+          m_slow$calculate()
+          MlProbX_slow <- m_slow$getLogProb("x")
+          expect_equal(MlProbX_slow, lProbX)
+
+      # Compiled model
+          cm_slow <- compileNimble(m_slow)
+          cm_slow$calculate()
+          CMlProbX_slow <- cm_slow$getLogProb("x")
+          expect_equal(CMlProbX_slow, lProbX)
+
+      # Test imputing value for all NAs
+          xNA <- c(NA, NA, NA, NA, NA)
+          mNA_slow <- nimbleModel(nc_slow, data = list(x = xNA),
+                 inits = list(lambda = lambda,
+                              prob = prob),
+                 constants = list(Nmin = Nmin, Nmax = Nmax,
+                                            len = len))
+
+
+          mNAConf_slow <- configureMCMC(mNA_slow)
+          mNAConf_slow$addMonitors('x')
+          mNA_MCMC_slow <- buildMCMC(mNAConf_slow)
+          cmNA_slow <- compileNimble(mNA_slow, mNA_MCMC_slow)
+
+          set.seed(0)
+          cmNA_slow$mNA_MCMC_slow$run(10)
+
+      # Did the imputed values come back?
+          expect_true(all(!is.na(as.matrix(cmNA_slow$mNA_MCMC_slow$mvSamples)[,"x[2]"])))
 
       # Test simulation code
           nSim <- 10
@@ -130,6 +182,7 @@ test_that("dNmixture_s works",
           len <- 5
 
           probX <- dNmixture_s(x, lambda, prob, Nmin, Nmax, len)
+          probX_slow <- dNmixture_s(x, lambda, prob, Nmin, Nmax, len, fast = 0)
       # Manually calculate the correct answer
           correctProbX <- 0
           for (N in Nmin:Nmax) {
@@ -137,19 +190,26 @@ test_that("dNmixture_s works",
           }
 
           expect_equal(probX, correctProbX)
+          expect_equal(probX_slow, correctProbX)
 
       # Uncompiled log probability
           lProbX <- dNmixture_s(x, lambda, prob, Nmin, Nmax, len, log = TRUE)
+          lProbX_slow <- dNmixture_s(x, lambda, prob, Nmin, Nmax, len, fast = FALSE, log = TRUE)
           lCorrectProbX <- log(correctProbX)
           expect_equal(lProbX, lCorrectProbX)
+          expect_equal(lProbX_slow, lCorrectProbX)
 
       # Compilation and compiled calculations
           CdNmixture_s <- compileNimble(dNmixture_s)
           CprobX <- CdNmixture_s(x, lambda, prob, Nmin, Nmax, len)
+          CprobX_slow <- CdNmixture_s(x, lambda, prob, Nmin, Nmax, len, fast = FALSE)
           expect_equal(CprobX, probX)
+          expect_equal(CprobX_slow, probX)
 
           ClProbX <- CdNmixture_s(x, lambda, prob, Nmin, Nmax, len, log = TRUE)
+          ClProbX_slow <- CdNmixture_s(x, lambda, prob, Nmin, Nmax, len, fast = FALSE, log = TRUE)
           expect_equal(ClProbX, lProbX)
+          expect_equal(ClProbX, ClProbX_slow)
 
       # Use in Nimble model
           nc <- nimbleCode({
@@ -173,7 +233,6 @@ test_that("dNmixture_s works",
           cm$calculate()
           CMlProbX <- cm$getLogProb("x")
           expect_equal(CMlProbX, lProbX)
-
       # Test imputing value for all NAs
           xNA <- c(NA, NA, NA, NA, NA)
           mNA <- nimbleModel(nc, data = list(x = xNA),
@@ -190,9 +249,51 @@ test_that("dNmixture_s works",
 
           set.seed(0)
           cmNA$mNA_MCMC$run(10)
-
       # Did the imputed values come back?
           expect_true(all(!is.na(as.matrix(cmNA$mNA_MCMC$mvSamples)[,"x[2]"])))
+
+      # Use slow version in Nimble model
+          nc_slow <- nimbleCode({
+            x[1:5] ~ dNmixture_s(lambda = lambda, prob = prob,
+                                 Nmin = Nmin, Nmax = Nmax, len = len, fast = 0)
+
+          })
+
+          m_slow <- nimbleModel(code = nc_slow,
+                           data = list(x = x),
+                           inits = list(lambda = lambda,
+                                        prob = prob),
+                           constants = list(Nmin = Nmin, Nmax = Nmax,
+                                            len = len))
+          m_slow$calculate()
+          MlProbX_slow <- m_slow$getLogProb("x")
+          expect_equal(MlProbX_slow, lProbX)
+
+      # Compiled model
+          cm_slow <- compileNimble(m_slow)
+          cm_slow$calculate()
+          CMlProbX_slow <- cm_slow$getLogProb("x")
+          expect_equal(CMlProbX_slow, lProbX)
+
+      # Test imputing value for all NAs
+          xNA <- c(NA, NA, NA, NA, NA)
+          mNA_slow <- nimbleModel(nc_slow, data = list(x = xNA),
+                 inits = list(lambda = lambda,
+                              prob = prob),
+                 constants = list(Nmin = Nmin, Nmax = Nmax,
+                                            len = len))
+
+
+          mNAConf_slow <- configureMCMC(mNA_slow)
+          mNAConf_slow$addMonitors('x')
+          mNA_MCMC_slow <- buildMCMC(mNAConf_slow)
+          cmNA_slow <- compileNimble(mNA_slow, mNA_MCMC_slow)
+
+          set.seed(0)
+          cmNA_slow$mNA_MCMC$run(10)
+
+      # Did the imputed values come back?
+          expect_true(all(!is.na(as.matrix(cmNA_slow$mNA_MCMC_slow$mvSamples)[,"x[2]"])))
 
       # Test simulation code
           nSim <- 10
